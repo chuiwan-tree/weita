@@ -2,7 +2,7 @@
 import json, sys, asyncio
 from playwright.sync_api import sync_playwright
 cases = json.load(open('/Users/grow/碰/读它/喂它一口/test/cases.json'))['cases']
-sols = [cases[i]['path'] for i in (0, 401, 802, 1203, 1604, 2005)]
+sols = [cases[i]["path"] for i in (401, 802, 0, 1203, 1604, 2005)]  # 10:02 关卡换了顺序
 KEY = {'U': 'ArrowUp', 'D': 'ArrowDown', 'L': 'ArrowLeft', 'R': 'ArrowRight', '.': ' ', 'X': 'x'}
 url = sys.argv[1] if len(sys.argv) > 1 else 'https://chuiwan-tree.github.io/weita/'
 with sync_playwright() as p:
@@ -12,7 +12,7 @@ with sync_playwright() as p:
     for i, path in enumerate(sols):
         if i: pg.keyboard.press('Enter'); pg.wait_for_timeout(2200)
         for k in path:
-            pg.keyboard.press(KEY[k]); pg.wait_for_timeout(1100 if k == 'X' else 750)
+            pg.keyboard.press(KEY[k]); pg.wait_for_timeout(1300 if k == "X" else 1000)  # 10:03 动画 0.7 秒，留够看
         print(i + 1, pg.inner_text('#msg'))
         pg.wait_for_timeout(2200)
     pg.screenshot(path='/tmp/weita-last.png')
