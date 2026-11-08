@@ -153,7 +153,7 @@ function events(k, a, b) {
     const who = la.tgt === '你' ? '你' : '那只虫';
     if (lb.mode !== '找') out.push('蜥蜴不追了。');
   }
-  if (la.mode === '找' && lb.mode === '岗' && la.tgt !== null) out.push('蜥蜴往回走了。');
+  // 10:42 不回岗以后它不往回走了（生人新1："屏幕说往回走了，可看不出它挪格"），这句删了
   if (la.mode === '追' && lb.mode === '追' && lb.tgt === '你') out.push('它还盯着你。');
   if (lb.mode === '停' && la.mode !== '停') out.push('蜥蜴停住了，盯着' + (lb.tgt === '你' ? '你。' : '一只虫。'));
   if (lb.mode === '吃') out.push('蜥蜴在嚼虫。');
@@ -173,7 +173,7 @@ function start(i) {
   st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null; heardNow = false; hist = [];
   document.getElementById('intro').textContent = goal();
   const canX = L.V.includes('吐');
-  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它脸朝着的那一条，一直到墙：你这一步走完还站在黄格里，它就看见你。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；虚线框那格就是会落的地方）' : '') + `。Z 撤一步，R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
+  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它脸朝着的那一条，一直到墙：你这一步走完还站在黄格里，它就看见你。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫吐出去（这一步你不动；虚线框那格就是会落的地方）' : '') + `。Z 撤一步，R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
   document.getElementById('xbtn').style.visibility = canX ? 'visible' : 'hidden';
   document.getElementById('next').style.display = 'none';
   document.getElementById('msg').textContent = '';
