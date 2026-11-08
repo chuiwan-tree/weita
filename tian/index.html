@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>喂它一口：三天</title>
+<style>
+  body { background: #1d1f1a; color: #ddd8c8; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 20px; }
+  #wrap { max-width: 1180px; margin: 0 auto; display: flex; gap: 28px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: normal; }
+  .sub { color: #8f8a78; font-size: 13px; margin-bottom: 10px; }
+  #board { display: inline-block; font-family: "PingFang SC", "Microsoft YaHei", monospace; font-size: 26px; line-height: 1.15; letter-spacing: 0; white-space: pre; background: #24261f; padding: 10px; border-radius: 6px; }
+  #board span { display: inline-block; width: 1.15em; text-align: center; }
+  .wall { color: #3d3e36; } .sight { background: #4a3f1c; color: #d9b44a; } .liz { color: #ff6b4a; font-weight: bold; }
+  .bug { color: #8fd16a; } .me { color: #6ab8ff; font-weight: bold; } .nest { color: #c9a0ff; }
+  .fruit { color: #ff9f3a; } .tree { color: #5f9a4a; } .rot { color: #8a6a3a; } .wood { color: #b08a5a; } .stone { color: #77786c; }
+  .egg { color: #d7e8a0; } .dead { color: #5a5a50; }
+  #left { max-width: 480px; }
+  #side { flex: 1; min-width: 300px; }
+  #status { font-size: 15px; margin: 10px 0; line-height: 1.7; white-space: pre-wrap; }
+  #msg { min-height: 24px; font-size: 16px; color: #ffd27a; margin: 8px 0; line-height: 1.6; }
+  #log { font-size: 14px; line-height: 1.6; max-height: 300px; overflow-y: auto; border-top: 1px solid #3a3b33; padding-top: 6px; color: #a8a390; }
+  .keys { color: #8f8a78; font-size: 13px; line-height: 1.7; margin-top: 12px; }
+  button { background: #33352c; color: #ddd8c8; border: 1px solid #555749; border-radius: 4px; padding: 6px 12px; font-size: 14px; cursor: pointer; margin: 2px; }
+  button:hover { background: #444638; }
+  #pad { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 52px); gap: 4px; }
+  #pad button { padding: 10px 0; }
+  #legend span { margin-right: 12px; white-space: nowrap; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="left">
+    <h1>喂它一口 <span style="color:#8f8a78;font-size:14px">（三天）</span></h1>
+    <div class="sub">你是一只吃虫的小东西。每天出门吃够 3 只，天黑前回到窝里。要过三天。</div>
+    <div id="board"></div>
+    <div id="legend" class="keys"></div>
+    <div id="pad">
+      <span></span><button data-k="上">↑</button><span></span>
+      <button data-k="左">←</button><button data-k="等">等</button><button data-k="右">→</button>
+      <span></span><button data-k="下">↓</button><button data-k="吐">吐</button>
+    </div>
+  </div>
+  <div id="side">
+    <div id="status"></div>
+    <div id="msg"></div>
+    <div><button data-k="撤">撤一步（Z）</button> <button data-k="重来">这一天重来（R）</button> <button data-k="从头">从第 1 天来</button> <button data-k="下一天" id="next" style="display:none">下一天 →（回车）</button></div>
+    <div class="keys">方向键或 WASD 走一格，空格原地不动，X 把吃下去的一只虫吐出来。Z 撤一步，R 这一天重来。</div>
+    <div id="log"></div>
+  </div>
+</div>
+<script src="tian.js"></script>
+<script>
+// 第一个 第14天：多天.js 的网页。规矩全在 tian.js（做网页.py 从 sim.js/two.js/多天.js 拼的），这里只管按键和画。
+const W = __mods.tian;
+const CLS = { 你: 'me', 甲: 'liz', 乙: 'liz', 虫: 'bug', 果: 'fruit', 树: 'tree', 烂: 'rot', 木: 'wood', 石: 'stone', 墙: 'wall', 窝: 'nest', 卵: 'egg', 灰: 'dead' };
+let log = [];
+// 打点（梓韬 11:08 要的）：每一下 键@离上一下几秒，攒 8 下或这一天结束就发。网址加 ?nodian 不发。
+const DIAN = { id: Math.random().toString(36).slice(2, 6), buf: [], t: Date.now(), off: /nodian/.test(location.search) };
+function dian(e) { if (DIAN.off) return; DIAN.buf.push(e + '@' + ((Date.now() - DIAN.t) / 1000).toFixed(1)); DIAN.t = Date.now(); if (DIAN.buf.length >= 8 || /^(死|过|黑|全过|重来|从头|下一天)/.test(e)) dianSend(); }
+function dianSend() { if (DIAN.off || !DIAN.buf.length) return; const g = W.getGames(); const body = `${DIAN.id} 三天 第${g.length}局 ` + DIAN.buf.join(' '); DIAN.buf = []; try { fetch('https://ntfy.sh/weita-dian-7f3k9q', { method: 'POST', body, keepalive: true }); } catch (e) {} }
+addEventListener('pagehide', dianSend);
+
+function press(k) {
+  const games = W.getGames(); const cur = games[games.length - 1];
+  let note = '';
+  if (k === '从头') { games.push([]); log = []; }
+  else if (k === '重来') { const i = cur.lastIndexOf('下一天'); games.push(i >= 0 ? cur.slice(0, i + 1) : []); }
+  else if (k === '撤') { if (cur.length && cur[cur.length - 1] !== '下一天') cur.pop(); }
+  else {
+    const e = W.replay(cur).end;
+    if (e === '死' || e === '黑' || e === '全过') note = '这一局已经结束了，按 R 这一天重来，或者从第 1 天来。';
+    else if (e === '天过' && k !== '下一天') note = '今天已经过了，按 下一天。';
+    else if (e !== '天过' && k === '下一天') note = '今天还没过完。';
+    else cur.push(k);
+  }
+  dian(k);
+  draw(note);
+}
+function draw(note) {
+  const games = W.getGames(); const r = W.replay(games[games.length - 1]);
+  const lines = W.screen(r).split('\n');
+  const h = r.m.h;
+  const grid = lines.slice(0, h).map(row => {
+    let out = ''; const cs = [...row];
+    for (let i = 0; i < cs.length; i++) {
+      const c = cs[i];
+      if (c === '·') { out += '<span class="sight">·</span>'; i++; continue; }   // "··" 是一格
+      if (c === '　') { out += '<span> </span>'; continue; }
+      out += `<span class="${CLS[c] || ''}">${c}</span>`;
+    }
+    return out;
+  }).join('\n');
+  document.getElementById('board').innerHTML = grid;
+  document.getElementById('status').textContent = lines.slice(h).join('\n');
+  const said = (note ? [note] : []).concat(r.msgs || []);
+  document.getElementById('msg').textContent = said.join('；');
+  if (r.msgs && r.msgs.length && !note) { log.unshift(`第 ${r.day} 天 第 ${r.steps} 步：` + r.msgs.join('；')); log = log.slice(0, 40); }
+  document.getElementById('log').innerHTML = log.map(x => `<div>${x}</div>`).join('');
+  document.getElementById('next').style.display = r.end === '天过' ? '' : 'none';
+  if (r.end && !note) dian({ 死: '死', 黑: '黑', 天过: '过', 全过: '全过' }[r.end] + r.day);
+  const lg = [['你', '你'], ['窝', '你的窝'], ['虫', '虫'], ['卵', '虫卵'], ['灰', '死掉的卵'], ['果', '果子'], ['树', '果树'], ['烂', '烂掉的果子'], ['木', '烂木头'], ['石', '蜥蜴晒太阳的石头'], ['甲', '蜥蜴'], ['·', '蜥蜴看得见的地方']];
+  document.getElementById('legend').innerHTML = lg.map(([c, w]) => `<span><b class="${c === '·' ? 'sight' : CLS[c]}">${c}</b> ${w}</span>`).join('');
+}
+const KEYS = { ArrowUp: '上', ArrowDown: '下', ArrowLeft: '左', ArrowRight: '右', w: '上', s: '下', a: '左', d: '右', W: '上', S: '下', A: '左', D: '右', ' ': '等', x: '吐', X: '吐', z: '撤', Z: '撤', r: '重来', R: '重来', Enter: '下一天' };
+addEventListener('keydown', e => { const k = KEYS[e.key]; if (!k) return; e.preventDefault(); press(k); });
+document.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => press(b.dataset.k)));
+draw('');
+</script>
+</body>
+</html>
