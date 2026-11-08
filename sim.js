@@ -206,6 +206,7 @@ function lizardOne(m, lz, player, bugs, sounds) {
       return [{ pos, face, mode: '岗', tgt: null, mem: null, eat: 0 }, false];
     }
   }
+  if (mode === '岗' && V.has('不回岗')) return [{ pos, face, mode: '岗', tgt: null, mem: null, eat: 0 }, false];   // 第二个 10:29：找完了就待在那儿
   let goal, steps;
   if (mode === '追' || mode === '找') { goal = mem; steps = 2; } else { goal = m.post; steps = 1; }
   let dead = false;
