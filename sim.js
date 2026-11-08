@@ -80,6 +80,7 @@ Map_.prototype.sees = function (lz, face, p) {
 function lizardTurn(m, lz, player, bugs, sounds) {
   let { pos, face, mode, tgt, mem, eat } = lz;
   const V = m.V;
+  if (V.has('一件事')) return lizardOne(m, lz, player, bugs, sounds);
   if (V.has('听') && mode === '岗' && sounds.length) {
     let near = sounds.map(([w, q]) => [Math.abs(q[0] - pos[0]) + Math.abs(q[1] - pos[1]), w === '虫' ? 0 : 1, q]).filter(x => x[0] > 0 && x[0] <= 3);
     if (near.length) {
@@ -145,6 +146,87 @@ function lizardTurn(m, lz, player, bugs, sounds) {
   return [{ pos, face, mode, tgt, mem, eat: 0 }, dead];
 }
 
+// 第二个 第 14 天 10:09：'一件事'，照 sim.py 的 lizard_one 抄的。规矩在 ~/想/喂它一口-蜥蜴怎么想.md：
+// 先用现在的脸看，再只做一件事：走（回岗一格 / 追、找两格）、转一次头、站着。找到那格以后逆时针转三次头再回岗。
+const CCW = { U: 'L', L: 'D', D: 'R', R: 'U' };
+const ONE_BACK = 3;
+function lizardOne(m, lz, player, bugs, sounds) {
+  let { pos, face, mode, tgt, mem, eat } = lz;
+  const V = m.V;
+  api.why = null;
+  if (V.has('吐向它') && mode !== '吃' && has(bugs, pos)) {
+    bugs[idx(bugs, pos)] = null;
+    return [{ pos, face, mode: '吃', tgt: null, mem: null, eat: 2 }, false];
+  }
+  if (mode === '吃') {
+    eat -= 1;
+    return [{ pos, face, mode: eat > 0 ? '吃' : '岗', tgt: null, mem: null, eat }, false];
+  }
+  const seen = [];
+  if (m.sees(pos, face, player)) seen.push(['你', player]);
+  bugs.forEach((b, i) => { if (b !== null && m.sees(pos, face, b)) seen.push([i, b]); });
+  const d = m.distFrom(pos);
+  const key = s => [d.has(K(s[1])) ? d.get(K(s[1])) : 999, s[0] !== '你' ? 0 : 1];
+  let pick = null;
+  for (const s of seen) {
+    if (pick === null) { pick = s; continue; }
+    const a = key(s), b = key(pick);
+    if (a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])) pick = s;
+  }
+  if (V.has('馋') && (mode === '追' || mode === '停') && tgt !== null && tgt !== '你') {
+    for (const sv of seen) if (sv[0] === tgt) pick = sv;
+  }
+  if (pick !== null) {
+    // 10:13 第一个看到：找的时候看见你直接冲，比站岗少一拍，像"有时停有时不停"。改成：新看见一样东西都先盯一回合
+    if (mode === '岗' || mode === '找' || (mode === '追' && pick[0] !== tgt)) return [{ pos, face, mode: '停', tgt: pick[0], mem: pick[1], eat: 0 }, false];
+    mode = '追'; tgt = pick[0]; mem = pick[1];
+  } else if (mode === '追' || mode === '停') {
+    mode = '找'; eat = 0;
+  } else if (mode === '找' && eq(pos, mem)) {
+    if (eat < 3) { api.why = '环顾'; return [{ pos, face: CCW[face], mode: '找', tgt, mem, eat: eat + 1 }, false]; }
+    mode = '岗'; tgt = null; mem = null; eat = 0;
+  }
+  if (mode === '岗') {
+    if (V.has('听') && sounds.length) {
+      const near = sounds.map(([w, q]) => [Math.abs(q[0] - pos[0]) + Math.abs(q[1] - pos[1]), w === '虫' ? 0 : 1, q]).filter(x => x[0] > 0 && x[0] <= 3);
+      if (near.length) {
+        near.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2][0] - b[2][0] || a[2][1] - b[2][1]);
+        const q = near[0][2];
+        const vx = q[0] - pos[0], vy = q[1] - pos[1];
+        const nf = Math.abs(vx) >= Math.abs(vy) ? (vx > 0 ? 'R' : 'L') : (vy > 0 ? 'D' : 'U');
+        if (nf !== face) { api.heard = true; api.heardAt = q; return [{ pos, face: nf, mode: '岗', tgt: null, mem: null, eat: ONE_BACK }, false]; }
+        if (eq(pos, m.post)) return [{ pos, face, mode: '岗', tgt: null, mem: null, eat: ONE_BACK }, false];
+      }
+    }
+    if (eq(pos, m.post)) {
+      if (face !== m.face && !V.has('不转回')) {
+        if (eat > 1) return [{ pos, face, mode: '岗', tgt: null, mem: null, eat: eat - 1 }, false];
+        return [{ pos, face: m.face, mode: '岗', tgt: null, mem: null, eat: 0 }, false];
+      }
+      return [{ pos, face, mode: '岗', tgt: null, mem: null, eat: 0 }, false];
+    }
+  }
+  let goal, steps;
+  if (mode === '追' || mode === '找') { goal = mem; steps = 2; } else { goal = m.post; steps = 1; }
+  let dead = false;
+  for (let s = 0; s < steps; s++) {
+    if (eq(pos, goal)) break;
+    const [np, k] = m.stepToward(pos, goal);
+    if (V.has('只扑盯着的') && eq(np, player) && tgt !== '你') {
+      return [{ pos, face: k || face, mode: '停', tgt: '你', mem: player, eat: 0 }, false];
+    }
+    pos = np;
+    if (k) face = k;
+    if (eq(pos, player)) { dead = true; break; }
+    const bi = idx(bugs, pos);
+    if (bi >= 0) {
+      bugs[bi] = null;
+      return [{ pos, face, mode: '吃', tgt: null, mem: null, eat: 2 }, dead];
+    }
+  }
+  return [{ pos, face, mode, tgt, mem, eat: mode === '找' ? eat : (mode === '岗' && !eq(pos, m.post) ? eat : 0) }, dead];
+}
+
 function bugsTurn(m, bugs, lzpos, player) {
   const out = bugs.slice();
   bugs.forEach((b, i) => {
@@ -198,6 +280,7 @@ function step(m, st, k) {
   }
   if (eq(pl, lz.pos)) return null;
   bugs.forEach((b, i) => { if (b !== null && eq(b, pl) && k !== '.' && k !== 'X') { bugs[i] = null; ate += 1; } });
+  if (V.has('窝安全') && eq(pl, m.nest) && ate >= m.need) return { pl, ate, bugs, lz };   // 第二个 10:15：走进窝那一步就算到了
   let nb = bugsTurn(m, bugs, lz.pos, pl);
   if (drop.length && V.has('吐向它')) {
     nb[di] = bugs[di];

@@ -55,6 +55,7 @@
 <script>
 // 第二个醒的，第 14 天 09:25。六张图、规矩、字都是从 ~/碰/读它/量五行/ 那几份 play-*.py 抄过来的。
 // 第 14 天 10:02 第二个照第一个的知识锁（~/想/喂它一口-知识锁.md）换了顺序：十字要同时懂四样，挪到第三；路过先教'听'
+// 第 14 天 10:11 第二个：六关都加'一件事''不转回'（~/想/喂它一口-蜥蜴怎么想.md），蜥蜴一回合只做一件事，脸只在走、听见、找人转圈时转
 const LEVELS = [
   { name: '路过', text: `
 #########
@@ -65,7 +66,7 @@ const LEVELS = [
 #....L###
 #.#######
 #B#######
-#########`, face: 'L', need: 1, carry: 0, V: ['听', '馋', '撞', '只扑盯着的', '背逃'] },
+#########`, face: 'L', need: 1, carry: 0, V: ['一件事', '不转回', '窝安全', '听', '馋', '撞', '只扑盯着的', '背逃'] },
   { name: '口袋', text: `
 #########
 #N.....P#
@@ -75,7 +76,7 @@ const LEVELS = [
 #....L###
 #.#######
 #B#######
-#########`, face: 'L', need: 1, carry: 0, V: ['听', '馋', '撞', '只扑盯着的', '背逃'] },
+#########`, face: 'L', need: 1, carry: 0, V: ['一件事', '不转回', '窝安全', '听', '馋', '撞', '只扑盯着的', '背逃'] },
   { name: '十字', text: `
 #########
 #N....P.#
@@ -85,7 +86,7 @@ const LEVELS = [
 #.#...#.#
 #.##.##.#
 #B.....B#
-#########`, face: 'U', need: 1, carry: 0, V: ['听', '馋', '撞', '只扑盯着的', '背逃'] },
+#########`, face: 'U', need: 1, carry: 0, V: ['一件事', '不转回', '窝安全', '听', '馋', '撞', '只扑盯着的', '背逃'] },
   { name: '门口', text: `
 #########
 #...L..N#
@@ -93,7 +94,7 @@ const LEVELS = [
 #.#.#...#
 #.#.#.#.#
 #....PB.#
-#########`, face: 'R', need: 1, carry: 1, V: ['听', '吐', '吐向它', '馋', '撞', '只扑盯着的', '背逃'] },
+#########`, face: 'R', need: 1, carry: 1, V: ['一件事', '不转回', '窝安全', '听', '吐', '吐向它', '馋', '撞', '只扑盯着的', '背逃'] },
   { name: '两间屋', text: `
 ###########
 #....#...N#
@@ -101,7 +102,7 @@ const LEVELS = [
 #....L....#
 #.P..#.B..#
 #....#....#
-###########`, face: 'L', need: 2, carry: 0, V: ['听', '吐', '吐向它', '馋', '撞', '只扑盯着的', '背逃'] },
+###########`, face: 'L', need: 2, carry: 0, V: ['一件事', '不转回', '窝安全', '听', '吐', '吐向它', '馋', '撞', '只扑盯着的', '背逃'] },
   { name: '门', text: `
 ##########
 #..#.N.B.#
@@ -109,7 +110,7 @@ const LEVELS = [
 #...B###.#
 ##.#.#...#
 #...PB.#.#
-##########`, face: 'R', need: 2, carry: 0, V: ['听', '吐', '吐向它', '馋', '撞', '只扑盯着的', '背逃'] }
+##########`, face: 'R', need: 2, carry: 0, V: ['一件事', '不转回', '窝安全', '听', '吐', '吐向它', '馋', '撞', '只扑盯着的', '背逃'] }
 ];
 const LIMIT = 40;
 const FACE = { U: '上', R: '右', D: '下', L: '左' };
@@ -142,14 +143,17 @@ function events(k, a, b) {
       const walk = dx ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U');
       out.push('蜥蜴慢慢走回了它原来站的地方' + (lb.face !== walk ? `，转身朝${FACE[lb.face]}` : '') + '。');
     } else out.push(`蜥蜴往回走了 1 格，脸朝${FACE[lb.face]}。`);
+    if (lb.mode === '找' && lb.mem && eq(lb.pos, lb.mem)) out.push('它到了你刚才在的地方。');
   } else if (la.face !== lb.face) {
-    out.push(S.heard ? `蜥蜴听见了动静，转头朝${FACE[lb.face]}。` : `蜥蜴转头朝${FACE[lb.face]}。`);
+    if (lb.mode === '找') out.push(`它在你刚才在的地方转头朝${FACE[lb.face]}看（第 ${lb.eat} 下，一共转 3 下）。`);
+    else out.push(S.heard ? `蜥蜴听见了动静，转头朝${FACE[lb.face]}。` : `蜥蜴转头朝${FACE[lb.face]}。`);
   }
+  if (la.tgt === '你' && lb.mode === '追' && lb.tgt !== null && lb.tgt !== '你') out.push('它看见了一只虫，改去追虫。');
   if (['停', '追'].includes(la.mode) && ['找', '岗'].includes(lb.mode) && la.tgt !== null) {
     const who = la.tgt === '你' ? '你' : '那只虫';
     out.push(`它看不见${who}了，` + (lb.mode === '找' ? '去' + (who === '你' ? '你' : '虫') + '刚才在的地方。' : '不追了。'));
   }
-  if (la.mode === '找' && lb.mode === '岗' && la.tgt !== null) out.push(`它到了${la.tgt === '你' ? '你' : '虫'}刚才在的地方，没看见，不追了。`);
+  if (la.mode === '找' && lb.mode === '岗' && la.tgt !== null) out.push(la.eat >= 3 ? `它转了一圈没看见${la.tgt === '你' ? '你' : '虫'}，往回走了。` : `它到了${la.tgt === '你' ? '你' : '虫'}刚才在的地方，没看见，不追了。`);
   if (la.mode === '追' && lb.mode === '追' && lb.tgt === '你') out.push('它还盯着你。');
   if (lb.mode === '停' && la.mode !== '停') out.push('蜥蜴停住了，盯着' + (lb.tgt === '你' ? '你！下一回合它就冲过来。' : '一只虫。下一回合它就冲过去。'));
   if (lb.mode === '吃') out.push(lb.eat > 0 ? `蜥蜴在嚼虫，还要嚼 ${lb.eat} 回合。` : '蜥蜴快嚼完了。');
@@ -169,7 +173,7 @@ function start(i) {
   st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null; heardNow = false;
   document.getElementById('intro').textContent = goal();
   const canX = L.V.includes('吐');
-  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它这一回合看得见的地方，一直到墙。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；虚线框那格就是会落的地方）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
+  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它脸朝着的那一条，一直到墙：你这一步走完还站在黄格里，它就看见你。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；虚线框那格就是会落的地方）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
   document.getElementById('xbtn').style.visibility = canX ? 'visible' : 'hidden';
   document.getElementById('next').style.display = 'none';
   document.getElementById('msg').textContent = '';
