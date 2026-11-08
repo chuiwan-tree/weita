@@ -45,7 +45,7 @@
   <div id="side">
     <div id="status"></div>
     <div id="msg"></div>
-    <div><button id="again">从头再来（R）</button> <button id="next" style="display:none">下一张 →</button></div>
+    <div><button id="undo">撤一步（Z）</button> <button id="again">从头再来（R）</button> <button id="next" style="display:none">下一张 →</button></div>
     <div class="keys" id="keys"></div>
     <div id="log"></div>
   </div>
@@ -123,7 +123,7 @@ function events(k, a, b) {
   const out = [];
   const la = a.lz, lb = b.lz;
   if (k === '.') out.push('你没动。');
-  if (k === 'X') out.push(eq(lastDrop, a.pl) ? '你吐出了一只虫，朝它那边走不过去，虫落在你脚下。' : '你朝蜥蜴那边吐出了一只虫。');
+  if (k === 'X') out.push(eq(lastDrop, a.pl) ? '你吐出了一只虫，落在你脚下。' : '你吐出了一只虫。');
   if (b.ate > a.ate) out.push('你吃到了一只虫！');
   a.bugs.forEach((x, i) => {
     const y = b.bugs[i];
@@ -143,20 +143,20 @@ function events(k, a, b) {
       const walk = dx ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U');
       out.push('蜥蜴慢慢走回了它原来站的地方' + (lb.face !== walk ? `，转身朝${FACE[lb.face]}` : '') + '。');
     } else out.push(`蜥蜴往回走了 1 格，脸朝${FACE[lb.face]}。`);
-    if (lb.mode === '找' && lb.mem && eq(lb.pos, lb.mem)) out.push('它到了你刚才在的地方。');
+    
   } else if (la.face !== lb.face) {
-    if (lb.mode === '找') out.push(`它在你刚才在的地方转头朝${FACE[lb.face]}看（第 ${lb.eat} 下，一共转 3 下）。`);
-    else out.push(S.heard ? `蜥蜴听见了动静，转头朝${FACE[lb.face]}。` : `蜥蜴转头朝${FACE[lb.face]}。`);
+    if (lb.mode === '找') out.push(`蜥蜴转头朝${FACE[lb.face]}。`);
+    else out.push(`蜥蜴转头朝${FACE[lb.face]}。`);
   }
-  if (la.tgt === '你' && lb.mode === '追' && lb.tgt !== null && lb.tgt !== '你') out.push('它看见了一只虫，改去追虫。');
+  if (la.tgt === '你' && lb.mode === '追' && lb.tgt !== null && lb.tgt !== '你') out.push('蜥蜴盯上了一只虫。');
   if (['停', '追'].includes(la.mode) && ['找', '岗'].includes(lb.mode) && la.tgt !== null) {
     const who = la.tgt === '你' ? '你' : '那只虫';
-    out.push(`它看不见${who}了，` + (lb.mode === '找' ? '去' + (who === '你' ? '你' : '虫') + '刚才在的地方。' : '不追了。'));
+    if (lb.mode !== '找') out.push('蜥蜴不追了。');
   }
-  if (la.mode === '找' && lb.mode === '岗' && la.tgt !== null) out.push(la.eat >= 3 ? `它转了一圈没看见${la.tgt === '你' ? '你' : '虫'}，往回走了。` : `它到了${la.tgt === '你' ? '你' : '虫'}刚才在的地方，没看见，不追了。`);
+  if (la.mode === '找' && lb.mode === '岗' && la.tgt !== null) out.push('蜥蜴往回走了。');
   if (la.mode === '追' && lb.mode === '追' && lb.tgt === '你') out.push('它还盯着你。');
-  if (lb.mode === '停' && la.mode !== '停') out.push('蜥蜴停住了，盯着' + (lb.tgt === '你' ? '你！下一回合它就冲过来。' : '一只虫。下一回合它就冲过去。'));
-  if (lb.mode === '吃') out.push(lb.eat > 0 ? `蜥蜴在嚼虫，还要嚼 ${lb.eat} 回合。` : '蜥蜴快嚼完了。');
+  if (lb.mode === '停' && la.mode !== '停') out.push('蜥蜴停住了，盯着' + (lb.tgt === '你' ? '你。' : '一只虫。'));
+  if (lb.mode === '吃') out.push('蜥蜴在嚼虫。');
   return out;
 }
 
@@ -170,10 +170,10 @@ function goal() {
 function start(i) {
   li = i; const L = LEVELS[i];
   m = new S.Map(L.text, L.face, L.need, L.carry, L.V);
-  st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null; heardNow = false;
+  st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null; heardNow = false; hist = [];
   document.getElementById('intro').textContent = goal();
   const canX = L.V.includes('吐');
-  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它脸朝着的那一条，一直到墙：你这一步走完还站在黄格里，它就看见你。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；虚线框那格就是会落的地方）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
+  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它脸朝着的那一条，一直到墙：你这一步走完还站在黄格里，它就看见你。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；虚线框那格就是会落的地方）' : '') + `。Z 撤一步，R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
   document.getElementById('xbtn').style.visibility = canX ? 'visible' : 'hidden';
   document.getElementById('next').style.display = 'none';
   document.getElementById('msg').textContent = '';
@@ -190,13 +190,25 @@ function draw(anim) {
   document.getElementById('log').innerHTML = log.map(t => `<div>${t}</div>`).join('');
 }
 
+// 10:25 第一个看了 Bunburrows：它能撤一步，人才敢去捅它、看它怎么反应。加 Z 撤一步（被吃了也能撤），规矩一条不动。
+let hist = [];
+function undo() {
+  if (!hist.length) return;
+  const h = hist.pop();
+  ({ st, prev, n, over, deadMark, lastDrop, heardNow } = h); log = h.log.slice();
+  document.getElementById('msg').textContent = '';
+  document.getElementById('next').style.display = 'none';
+  draw();
+}
 function act(k) {
   if (over) return;
   const L = LEVELS[li];
   if (k === 'X' && !L.V.includes('吐')) return;
+  const snap = { st, prev, n, over, deadMark, lastDrop, heardNow, log: log.slice() };
   lastDrop = k === 'X' ? S.dropAt(m, st) : null;
   const r = S.step(m, st, k);
   const msg = document.getElementById('msg');
+  if (r !== 'bad') hist.push(snap);
   if (r === 'bad') {
     msg.textContent = k === 'X' ? '吐不出来：肚子里没有虫，或者脚下已经有一只。' : (st.lz && (() => { const d = S.DIRS[k]; return eq([st.pl[0] + d[0], st.pl[1] + d[1]], st.lz.pos); })() ? '走不过去，蜥蜴占着那一格。' : '走不过去，那边是墙。');
     return;
@@ -206,7 +218,7 @@ function act(k) {
     const d = S.DIRS[k] || [0, 0];
     deadMark = { at: [st.pl[0] + d[0], st.pl[1] + d[1]], from: st.lz.pos };
     log.unshift(`第 ${n} 步（${KNAME[k]}）：你走完这一步，蜥蜴扑到了你身上。（红叉是它扑到你的那一格）`);
-    over = true; msg.textContent = '你被吃掉了，这一局完了。按 R 从头再来。';
+    over = true; msg.textContent = '你被吃掉了。按 Z 撤回一步，或者按 R 从头再来。';
     prev = st; heardNow = false; draw(true); return;
   }
   heardNow = S.heard;
@@ -225,11 +237,13 @@ function act(k) {
 const KEYMAP = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R', ' ': '.', '.': '.', x: 'X', X: 'X' };
 document.addEventListener('keydown', e => {
   if (e.key === 'r' || e.key === 'R') { start(li); e.preventDefault(); return; }
+  if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') { undo(); e.preventDefault(); return; }
   if (e.key === 'Enter' && document.getElementById('next').style.display !== 'none') { start(li + 1); return; }
   const k = KEYMAP[e.key]; if (k) { act(k); e.preventDefault(); }
 });
 document.querySelectorAll('#pad button').forEach(b => b.addEventListener('click', () => act(b.dataset.k)));
 document.getElementById('again').onclick = () => start(li);
+document.getElementById('undo').onclick = () => undo();
 document.getElementById('next').onclick = () => start(li + 1);
 const lv = document.getElementById('levels');
 LEVELS.forEach((L, i) => { const b = document.createElement('button'); b.textContent = (i + 1) + ' ' + L.name; b.onclick = () => start(i); lv.appendChild(b); });

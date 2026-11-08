@@ -131,7 +131,7 @@ function drawSound(g, m, q, t, color) {
       const oy = d - Math.abs(ox);
       for (const yy of oy ? [oy, -oy] : [0]) {
         const x = q[0] + ox, y = q[1] + yy;
-        if (x < 0 || y < 0 || x >= m.w || y >= m.h || m.wall.has(x + ',' + y)) continue;
+        if (x < 0 || y < 0 || x >= m.w || y >= m.h) continue;   // 10:22：墙上也画，它隔着墙也听得见（梓韬以为声音沿路走，是原来的圈只画在地上骗了他）
         g.beginPath(); g.arc(cx(x), cx(y), C * 0.42 * (0.6 + 0.4 * a), 0, 7); g.lineWidth = 3; g.strokeStyle = color; g.stroke();
       }
     }
@@ -230,16 +230,15 @@ function frame(cv, m, info, t) {
   }
   const showPop = !prev || t >= 1 ? 1 : tPop;
   if (!dead && info.heard && prev && t < 0.62) {   // 先是听见、转头，转过来看见了才是"看见你了"
-    g.save(); g.globalAlpha = seg(t, 0.2, 0.35); bubble(g, lx, ly, '? 听见了', '#f0d060'); g.restore();
+    g.save(); g.globalAlpha = seg(t, 0.2, 0.35); bubble(g, lx, ly, '?', '#f0d060'); g.restore();
   } else if (!dead && showPop > 0) {
     g.save(); g.globalAlpha = showPop;
-    if (lz.mode === '停') bubble(g, lx, ly, lz.tgt === '你' ? '! 看见你了' : '! 看见虫了', lz.tgt === '你' ? '#ff7a5c' : '#c8e88a');
-    else if (lz.mode === '追') bubble(g, lx, ly, lz.tgt === '你' ? '追你' : (switched ? '! 改追虫' : '追虫'), lz.tgt === '你' ? '#ff7a5c' : '#c8e88a');
-    else if (lz.mode === '找') bubble(g, lx, ly, lz.eat > 0 ? `转着找 ${lz.eat}/3` : (same(lz.pos, lz.mem) ? '到了…' : '去你刚才那儿'), '#e0c070');
-    else if (lz.mode === '吃') bubble(g, lx, ly, '嚼 ' + lz.eat, '#c8e88a');
-    else if (info.heard) bubble(g, lx, ly, '? 听见了', '#f0d060');
-    else if (prev && prev.lz.mode === '找' && lz.mode === '岗') bubble(g, lx, ly, '没看见，回去', '#9a9682');
-    else if (lz.mode === '岗' && !same(lz.pos, m.post)) bubble(g, lx, ly, '回岗位…', '#9a9682');
+    // 10:22 梓韬："太直白地写上去，就基本上把所有规则都直接曝光了"，冒字只留记号，让人自己看出来
+    if (lz.mode === '停') bubble(g, lx, ly, '!', lz.tgt === '你' ? '#ff7a5c' : '#c8e88a');
+    else if (lz.mode === '追') bubble(g, lx, ly, '!!', lz.tgt === '你' ? '#ff7a5c' : '#c8e88a');
+    else if (lz.mode === '找') bubble(g, lx, ly, '?', '#e0c070');
+    else if (lz.mode === '吃') bubble(g, lx, ly, '嚼', '#c8e88a');
+    else if (info.heard) bubble(g, lx, ly, '?', '#f0d060');
     g.restore();
   }
   if (dead && t >= 1) {
