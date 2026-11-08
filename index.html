@@ -185,7 +185,25 @@ function goal() {
   return '蓝的“我”是你，紫的是你的窝。吃到一只绿虫，再回到窝里，就过了。';
 }
 
+// 第 14 天 11:09 第二个：打点（梓韬 11:08："你做个打点吧……我玩的时候你就可以看得到我的行动轨迹了"）。
+// 每按一下记 键@离上一下几秒；Z 撤、R 重来、开 进这一张、死/过/黑 一局的结果。攒 8 下或一局结束就发到 ntfy.sh 的一个话题（公开服务，只发按键，不发别的）。
+// 规矩是定死的，有按键就能在 sim 里一步步重放出整局。网址后面加 ?nodian 就不发（录像用）。
+const DIAN = { id: Math.random().toString(36).slice(2, 6), buf: [], t: Date.now(), ju: [], off: /nodian/.test(location.search) };
+function dian(e) {
+  if (DIAN.off) return;
+  DIAN.buf.push(e + '@' + ((Date.now() - DIAN.t) / 1000).toFixed(1)); DIAN.t = Date.now();
+  if (DIAN.buf.length >= 8 || /^(死|过|黑|开|重来)/.test(e)) dianSend();
+}
+function dianSend() {
+  if (DIAN.off || !DIAN.buf.length) return;
+  const body = `${DIAN.id} 第${li + 1}张${LEVELS[li].name} 第${DIAN.ju[li] || 1}局 ` + DIAN.buf.join(' ');
+  DIAN.buf = [];
+  try { fetch('https://ntfy.sh/weita-dian-7f3k9q', { method: 'POST', body, keepalive: true }); } catch (e) {}
+}
+addEventListener('pagehide', dianSend);
+
 function start(i) {
+  DIAN.ju[i] = (DIAN.ju[i] || 0) + 1;
   li = i; const L = LEVELS[i];
   m = new S.Map(L.text, L.face, L.need, L.carry, L.V);
   st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null; heardNow = false; hist = [];
@@ -196,7 +214,7 @@ function start(i) {
   document.getElementById('next').style.display = 'none';
   document.getElementById('msg').textContent = '';
   document.querySelectorAll('#levels button').forEach((b, j) => b.classList.toggle('on', j === i));
-  draw();
+  draw(); dian('开');
 }
 
 let heardNow = false;
@@ -212,6 +230,7 @@ function draw(anim) {
 let hist = [];
 function undo() {
   if (!hist.length) return;
+  dian('Z');
   const h = hist.pop();
   ({ st, prev, n, over, deadMark, lastDrop, heardNow } = h); log = h.log.slice();
   document.getElementById('msg').textContent = '';
@@ -236,31 +255,31 @@ function act(k) {
     const d = S.DIRS[k] || [0, 0];
     deadMark = { at: [st.pl[0] + d[0], st.pl[1] + d[1]], from: st.lz.pos };
     log.unshift(`第 ${n} 步（${KNAME[k]}）：你走完这一步，蜥蜴扑到了你身上。（红叉是它扑到你的那一格）`);
-    over = true; msg.textContent = '你被吃掉了。按 Z 撤回一步，或者按 R 从头再来。';
+    over = true; msg.textContent = '你被吃掉了。按 Z 撤回一步，或者按 R 从头再来。'; dian(k); dian('死');
     prev = st; heardNow = false; draw(true); return;
   }
-  heardNow = S.heard;
+  heardNow = S.heard; dian(k);
   const ev = events(k, st, r);   // 09:55 第三个：空着的步把有事的挤下去了，没动静的那步淡淡写一句
   log.unshift(ev.length ? `第 ${n} 步（${KNAME[k]}）：` + ev.join(' ') : `<span style="color:#77735f">第 ${n} 步（${KNAME[k]}）：你走了一格，它没动静。</span>`);
   prev = st; st = r;
   if (st.ate < m.need && st.bugs.every(b => !b)) { over = true; msg.textContent = `你肚子里只剩 ${st.ate} 只，地上也没有虫了，凑不够 ${m.need} 只，这一局赢不了了。按 R 从头再来。`; }
   else if (st.ate >= m.need && eq(st.pl, m.nest)) {
-    over = true; msg.textContent = `回到窝了，过了！一共 ${n} 步。`;
+    over = true; msg.textContent = `回到窝了，过了！一共 ${n} 步。`; dian('过');
     if (li + 1 < LEVELS.length) document.getElementById('next').style.display = 'inline-block';
     else msg.textContent += ' 这是最后一张。';
-  } else if (n >= LIMIT) { over = true; msg.textContent = `走了 ${LIMIT} 步还没回窝，天黑了。这一局完了。按 R 从头再来。`; }
+  } else if (n >= LIMIT) { over = true; dian('黑'); msg.textContent = `走了 ${LIMIT} 步还没回窝，天黑了。这一局完了。按 R 从头再来。`; }
   draw(true);
 }
 
 const KEYMAP = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R', ' ': '.', '.': '.', x: 'X', X: 'X' };
 document.addEventListener('keydown', e => {
-  if (e.key === 'r' || e.key === 'R') { start(li); e.preventDefault(); return; }
+  if (e.key === 'r' || e.key === 'R') { dian('重来'); start(li); e.preventDefault(); return; }
   if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') { undo(); e.preventDefault(); return; }
   if (e.key === 'Enter' && document.getElementById('next').style.display !== 'none') { start(li + 1); return; }
   const k = KEYMAP[e.key]; if (k) { act(k); e.preventDefault(); }
 });
 document.querySelectorAll('#pad button').forEach(b => b.addEventListener('click', () => act(b.dataset.k)));
-document.getElementById('again').onclick = () => start(li);
+document.getElementById('again').onclick = () => { dian('重来'); start(li); };
 document.getElementById('undo').onclick = () => undo();
 document.getElementById('next').onclick = () => start(li + 1);
 const lv = document.getElementById('levels');
