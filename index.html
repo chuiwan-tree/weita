@@ -6,11 +6,12 @@
 <title>喂它一口（代号）</title>
 <style>
   body { background: #1d1f1a; color: #ddd8c8; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 20px; }
-  #wrap { max-width: 900px; margin: 0 auto; display: flex; gap: 28px; flex-wrap: wrap; }
+  #wrap { max-width: 1180px; margin: 0 auto; display: flex; gap: 28px; flex-wrap: wrap; }
   h1 { font-size: 20px; margin: 0 0 4px; font-weight: normal; }
   .sub { color: #8f8a78; font-size: 13px; margin-bottom: 14px; }
-  #board { font-family: Menlo, Consolas, "Courier New", monospace; font-size: 30px; line-height: 1.05; letter-spacing: 0; background: #12130f; padding: 14px 16px; border-radius: 6px; user-select: none; }
-  #board span { display: inline-block; width: 1.2ch; text-align: center; }
+  #board { display: block; border-radius: 6px; max-width: 100%; }
+  #legend canvas { vertical-align: middle; margin-right: 4px; }
+  #legend span { margin-right: 14px; white-space: nowrap; }
   .wall { color: #4a4b42; } .sight { color: #d9b44a; } .liz { color: #ff6b4a; font-weight: bold; }
   .bug { color: #8fd16a; } .me { color: #6ab8ff; font-weight: bold; } .nest { color: #c9a0ff; } .old { color: #a05040; }
   .x { color: #ff3b3b; font-weight: bold; }
@@ -34,7 +35,7 @@
     <h1>喂它一口 <span style="color:#8f8a78;font-size:14px">（代号，原来叫读它）</span></h1>
     <div class="sub" id="intro"></div>
     <div id="levels"></div>
-    <pre id="board"></pre>
+    <canvas id="board"></canvas>
     <div id="pad">
       <span></span><button data-k="U">↑</button><span></span>
       <button data-k="L">←</button><button data-k=".">等</button><button data-k="R">→</button>
@@ -50,6 +51,7 @@
   </div>
 </div>
 <script src="sim.js"></script>
+<script src="画.js"></script>
 <script>
 // 第二个醒的，第 14 天 09:25。六张图、规矩、字都是从 ~/碰/读它/量五行/ 那几份 play-*.py 抄过来的。
 const LEVELS = [
@@ -134,11 +136,11 @@ function events(k, a, b) {
   });
   if (!eq(la.pos, lb.pos)) {
     const dx = lb.pos[0] - la.pos[0], dy = lb.pos[1] - la.pos[1], nn = Math.abs(dx) + Math.abs(dy);
-    if (['追', '找', '停'].includes(la.mode) || ['追', '找'].includes(lb.mode) || nn > 1) out.push(`蜥蜴冲了 ${nn} 格（~ 是它上一回合站的地方）。`);
+    if (['追', '找', '停'].includes(la.mode) || ['追', '找'].includes(lb.mode) || nn > 1) out.push(`蜥蜴冲了 ${nn} 格。`);
     else if (eq(lb.pos, m.post)) {
       const walk = dx ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U');
-      out.push('蜥蜴慢慢走回了它原来站的地方' + (lb.face !== walk ? `，转身朝${FACE[lb.face]}` : '') + '（~ 是它上一回合站的地方）。');
-    } else out.push(`蜥蜴往回走了 1 格，脸朝${FACE[lb.face]}（~ 是它上一回合站的地方）。`);
+      out.push('蜥蜴慢慢走回了它原来站的地方' + (lb.face !== walk ? `，转身朝${FACE[lb.face]}` : '') + '。');
+    } else out.push(`蜥蜴往回走了 1 格，脸朝${FACE[lb.face]}。`);
   } else if (la.face !== lb.face) {
     out.push(S.heard ? `蜥蜴听见了动静，转头朝${FACE[lb.face]}。` : `蜥蜴转头朝${FACE[lb.face]}。`);
   }
@@ -155,18 +157,18 @@ function events(k, a, b) {
 
 function goal() {
   const L = LEVELS[li];
-  if (L.carry) return '你是 @，N 是你的窝。你肚子里已经有一只虫，带着至少一只虫回到窝里，就过了。b 是虫。';
-  if (L.need === 2) return '你是 @，N 是你的窝。吃到两只虫 b，带着回到窝里，就过了。';
-  return '你是 @，N 是你的窝。吃到一只虫 b，再回到窝里，就过了。';
+  if (L.carry) return '蓝的“我”是你，紫的是你的窝。你肚子里已经有一只虫（画在你脚下），带着至少一只虫回到窝里，就过了。绿的是虫。';
+  if (L.need === 2) return '蓝的“我”是你，紫的是你的窝。吃到两只绿虫，带着回到窝里，就过了。';
+  return '蓝的“我”是你，紫的是你的窝。吃到一只绿虫，再回到窝里，就过了。';
 }
 
 function start(i) {
   li = i; const L = LEVELS[i];
   m = new S.Map(L.text, L.face, L.need, L.carry, L.V);
-  st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null;
+  st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null; heardNow = false;
   document.getElementById('intro').textContent = goal();
   const canX = L.V.includes('吐');
-  document.getElementById('keys').innerHTML = '蜥蜴是箭头（^ &gt; v &lt;），箭头是它脸朝的方向。<span class="sight">,</span> 是它看得见的格子。# 是墙。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；底下发亮的那格就是会落的地方）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
+  document.getElementById('keys').innerHTML = '红的是蜥蜴，尖的一头是它的脸。涂黄的格子是它这一回合看得见的地方，一直到墙。淡淡的白线是这一回合谁从哪儿动过来。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；虚线框那格就是会落的地方）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
   document.getElementById('xbtn').style.visibility = canX ? 'visible' : 'hidden';
   document.getElementById('next').style.display = 'none';
   document.getElementById('msg').textContent = '';
@@ -174,30 +176,12 @@ function start(i) {
   draw();
 }
 
-function draw() {
-  const lines = [];
-  const dropCell = (!over && !deadMark) ? S.dropAt(m, st) : null;   // 09:28 按 x 虫会落的那一格，底下淡淡亮一块（第一个 09:36：生人猜不准斜着吐落在哪）
-  for (let y = 0; y < m.h; y++) {
-    let r = '';
-    for (let x = 0; x < m.w; x++) {
-      const p = [x, y];
-      let c = ' ', cls = '';
-      if (deadMark && eq(p, deadMark.at)) { c = 'X'; cls = 'x'; }
-      else if (deadMark && eq(p, deadMark.from)) { c = '~'; cls = 'old'; }
-      else if (!deadMark && eq(p, st.pl)) { c = '@'; cls = 'me'; }
-      else if (!deadMark && eq(p, st.lz.pos)) { c = ARROW[st.lz.face]; cls = 'liz'; }
-      else if (st.bugs.some(b => b && eq(b, p))) { c = 'b'; cls = 'bug'; }
-      else if (m.wall.has(x + ',' + y)) { c = '#'; cls = 'wall'; }
-      else if (eq(p, m.nest)) { c = 'N'; cls = 'nest'; }
-      else if (!deadMark && m.sees(st.lz.pos, st.lz.face, p)) { c = ','; cls = 'sight'; }
-      else if (!deadMark && prev && !eq(prev.lz.pos, st.lz.pos) && eq(p, prev.lz.pos)) { c = '~'; cls = 'old'; }
-      if (dropCell && eq(p, dropCell)) cls += ' drop';
-      r += `<span class="${cls}">${c === ' ' ? '&nbsp;' : c.replace('<', '&lt;').replace('>', '&gt;')}</span>`;
-    }
-    lines.push(r);
-  }
-  document.getElementById('board').innerHTML = lines.join('\n');
-  document.getElementById('status').textContent = `第 ${LEVELS.indexOf(LEVELS[li]) + 1} 张　走了 ${n} 步，还剩 ${LIMIT - n} 步　肚子里 ${st.ate} 只`;
+let heardNow = false;
+function draw(anim) {
+  const info = { prev: anim ? prev : null, st, dead: deadMark, drop: (!over && !deadMark) ? S.dropAt(m, st) : null, heard: heardNow, spit: anim && lastDrop && prev ? { from: prev.pl, to: lastDrop } : null };
+  const cv = document.getElementById('board');
+  if (anim && WeiDraw.animate) WeiDraw.animate(cv, m, info); else WeiDraw.frame(cv, m, Object.assign(info, { prev }), 1);
+  document.getElementById('status').textContent = `第 ${li + 1} 张　走了 ${n} 步，还剩 ${LIMIT - n} 步　肚子里 ${st.ate} 只`;
   document.getElementById('log').innerHTML = log.map(t => `<div>${t}</div>`).join('');
 }
 
@@ -216,10 +200,11 @@ function act(k) {
   if (r === null) {
     const d = S.DIRS[k] || [0, 0];
     deadMark = { at: [st.pl[0] + d[0], st.pl[1] + d[1]], from: st.lz.pos };
-    log.unshift(`第 ${n} 步（${KNAME[k]}）：你走完这一步，蜥蜴扑到了你身上。（X 是它扑到你的那一格，~ 是它扑之前站的地方）`);
+    log.unshift(`第 ${n} 步（${KNAME[k]}）：你走完这一步，蜥蜴扑到了你身上。（红叉是它扑到你的那一格）`);
     over = true; msg.textContent = '你被吃掉了，这一局完了。按 R 从头再来。';
-    draw(); return;
+    prev = st; heardNow = false; draw(true); return;
   }
+  heardNow = S.heard;
   log.unshift(`第 ${n} 步（${KNAME[k]}）：` + events(k, st, r).join(' '));
   prev = st; st = r;
   if (st.ate < m.need && st.bugs.every(b => !b)) { over = true; msg.textContent = `你肚子里只剩 ${st.ate} 只，地上也没有虫了，凑不够 ${m.need} 只，这一局赢不了了。按 R 从头再来。`; }
@@ -228,7 +213,7 @@ function act(k) {
     if (li + 1 < LEVELS.length) document.getElementById('next').style.display = 'inline-block';
     else msg.textContent += ' 这是最后一张。';
   } else if (n >= LIMIT) { over = true; msg.textContent = `走了 ${LIMIT} 步还没回窝，天黑了。这一局完了。按 R 从头再来。`; }
-  draw();
+  draw(true);
 }
 
 const KEYMAP = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R', ' ': '.', '.': '.', x: 'X', X: 'X' };
