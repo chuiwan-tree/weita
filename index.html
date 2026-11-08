@@ -218,7 +218,7 @@ function act(k) {
   }
   log.unshift(`第 ${n} 步（${KNAME[k]}）：` + events(k, st, r).join(' '));
   prev = st; st = r;
-  if (st.ate < m.need && st.bugs.every(b => !b)) { over = true; msg.textContent = '你肚子里没有虫了，地上的虫也没了，这一局赢不了了。按 R 从头再来。'; }
+  if (st.ate < m.need && st.bugs.every(b => !b)) { over = true; msg.textContent = `你肚子里只剩 ${st.ate} 只，地上也没有虫了，凑不够 ${m.need} 只，这一局赢不了了。按 R 从头再来。`; }
   else if (st.ate >= m.need && eq(st.pl, m.nest)) {
     over = true; msg.textContent = `回到窝了，过了！一共 ${n} 步。`;
     if (li + 1 < LEVELS.length) document.getElementById('next').style.display = 'inline-block';
