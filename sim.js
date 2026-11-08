@@ -214,10 +214,18 @@ function step(m, st, k) {
   return { pl, ate, bugs, lz: lz2 };
 }
 
+// 09:28 给画面用：现在按 x，虫会落在哪一格（跟 step 里吐的那几行同一个算法）
+function dropAt(m, st) {
+  if (!m.V.has('吐') || st.ate < 1 || has(st.bugs, st.pl)) return null;
+  if (!m.V.has('吐向它')) return st.pl;
+  const [t] = m.stepToward(st.pl, st.lz.pos);
+  return (!eq(t, st.pl) && m.free(t) && !has(st.bugs, t)) ? t : st.pl;
+}
+
 function init(m) {
   return { pl: m.start, ate: m.carry, bugs: m.bugs.slice(), lz: { pos: m.post, face: m.face, mode: '岗', tgt: null, mem: null, eat: 0 } };
 }
 
-api = { Map: Map_, step, init, DIRS, ORDER, eq, heard: false };
+api = { Map: Map_, step, init, dropAt, DIRS, ORDER, eq, heard: false };
 if (typeof module !== 'undefined') module.exports = api; else root.WeiSim = api;
 })(this);

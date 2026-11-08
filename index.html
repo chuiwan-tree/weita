@@ -14,6 +14,7 @@
   .wall { color: #4a4b42; } .sight { color: #d9b44a; } .liz { color: #ff6b4a; font-weight: bold; }
   .bug { color: #8fd16a; } .me { color: #6ab8ff; font-weight: bold; } .nest { color: #c9a0ff; } .old { color: #a05040; }
   .x { color: #ff3b3b; font-weight: bold; }
+  .drop { background: #3a3220; border-radius: 3px; }
   #side { flex: 1; min-width: 300px; }
   #status { font-size: 15px; margin: 10px 0; }
   #msg { min-height: 24px; font-size: 16px; color: #ffd27a; margin: 8px 0; }
@@ -112,13 +113,13 @@ const FACE = { U: '上', R: '右', D: '下', L: '左' };
 const ARROW = { U: '^', R: '>', D: 'v', L: '<' };
 const KNAME = { U: '↑', R: '→', D: '↓', L: '←', '.': '等', X: '吐' };
 const S = WeiSim, eq = S.eq;
-let li = 0, m, st, prev, n, over, log, deadMark;
+let li = 0, m, st, prev, n, over, log, deadMark, lastDrop = null;
 
 function events(k, a, b) {
   const out = [];
   const la = a.lz, lb = b.lz;
   if (k === '.') out.push('你没动。');
-  if (k === 'X') out.push('你朝蜥蜴那边吐出了一只虫。');
+  if (k === 'X') out.push(eq(lastDrop, a.pl) ? '你吐出了一只虫，朝它那边走不过去，虫落在你脚下。' : '你朝蜥蜴那边吐出了一只虫。');
   if (b.ate > a.ate) out.push('你吃到了一只虫！');
   a.bugs.forEach((x, i) => {
     const y = b.bugs[i];
@@ -165,7 +166,7 @@ function start(i) {
   st = S.init(m); prev = null; n = 0; over = false; log = []; deadMark = null;
   document.getElementById('intro').textContent = goal();
   const canX = L.V.includes('吐');
-  document.getElementById('keys').innerHTML = '蜥蜴是箭头（^ &gt; v &lt;），箭头是它脸朝的方向。<span class="sight">,</span> 是它看得见的格子。# 是墙。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
+  document.getElementById('keys').innerHTML = '蜥蜴是箭头（^ &gt; v &lt;），箭头是它脸朝的方向。<span class="sight">,</span> 是它看得见的格子。# 是墙。<br>方向键或 WASD 走一格，空格不动' + (canX ? '，X 把吃下去的一只虫朝蜥蜴那边吐出去一格（这一步你不动；底下发亮的那格就是会落的地方）' : '') + `。R 从头再来。天黑前（${LIMIT} 步以内）要回到窝。`;
   document.getElementById('xbtn').style.visibility = canX ? 'visible' : 'hidden';
   document.getElementById('next').style.display = 'none';
   document.getElementById('msg').textContent = '';
@@ -175,6 +176,7 @@ function start(i) {
 
 function draw() {
   const lines = [];
+  const dropCell = (!over && !deadMark) ? S.dropAt(m, st) : null;   // 09:28 按 x 虫会落的那一格，底下淡淡亮一块（第一个 09:36：生人猜不准斜着吐落在哪）
   for (let y = 0; y < m.h; y++) {
     let r = '';
     for (let x = 0; x < m.w; x++) {
@@ -189,6 +191,7 @@ function draw() {
       else if (eq(p, m.nest)) { c = 'N'; cls = 'nest'; }
       else if (!deadMark && m.sees(st.lz.pos, st.lz.face, p)) { c = ','; cls = 'sight'; }
       else if (!deadMark && prev && !eq(prev.lz.pos, st.lz.pos) && eq(p, prev.lz.pos)) { c = '~'; cls = 'old'; }
+      if (dropCell && eq(p, dropCell)) cls += ' drop';
       r += `<span class="${cls}">${c === ' ' ? '&nbsp;' : c.replace('<', '&lt;').replace('>', '&gt;')}</span>`;
     }
     lines.push(r);
@@ -202,6 +205,7 @@ function act(k) {
   if (over) return;
   const L = LEVELS[li];
   if (k === 'X' && !L.V.includes('吐')) return;
+  lastDrop = k === 'X' ? S.dropAt(m, st) : null;
   const r = S.step(m, st, k);
   const msg = document.getElementById('msg');
   if (r === 'bad') {
