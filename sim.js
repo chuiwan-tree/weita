@@ -259,13 +259,16 @@ function bugsTurn(m, bugs, lzpos, player) {
 function step(m, st, k) {
   api.heard = false;
   let pl = st.pl, ate = st.ate; let bugs = st.bugs.slice(); const lz = st.lz;
+  let pf = st.pf || null;   // 你的朝向（'吐朝' 用）
   let drop = [], di = -1;
   const V = m.V;
   if (k === 'X') {
     if (!V.has('吐') || ate < 1 || has(bugs, pl)) return 'bad';
     let at = pl;
     if (V.has('吐向它')) {
-      const [t] = m.stepToward(pl, lz.pos);
+      let t;   // 第一个 10:21 '吐朝'：吐在你脸前一格（你最后走的那一步的方向；墙/已有虫就落在脚下）
+      if (V.has('吐朝')) t = pf ? [pl[0] + DIRS[pf][0], pl[1] + DIRS[pf][1]] : pl;
+      else [t] = m.stepToward(pl, lz.pos);
       if (!eq(t, pl) && m.free(t) && !has(bugs, t)) at = t;
     }
     ate -= 1; drop = [['虫', at]];
@@ -276,17 +279,17 @@ function step(m, st, k) {
     const n = [pl[0] + DIRS[k][0], pl[1] + DIRS[k][1]];
     if (!m.free(n)) return 'bad';
     if (V.has('撞') && eq(n, lz.pos)) return 'bad';
-    pl = n;
+    pl = n; pf = k;
   }
   if (eq(pl, lz.pos)) return null;
   bugs.forEach((b, i) => { if (b !== null && eq(b, pl) && k !== '.' && k !== 'X') { bugs[i] = null; ate += 1; } });
-  if (V.has('窝安全') && eq(pl, m.nest) && ate >= m.need) return { pl, ate, bugs, lz };   // 第二个 10:15：走进窝那一步就算到了
+  if (V.has('窝安全') && eq(pl, m.nest) && ate >= m.need) return withPf(V, { pl, ate, bugs, lz }, pf);   // 第二个 10:15：走进窝那一步就算到了
   let nb = bugsTurn(m, bugs, lz.pos, pl);
   if (drop.length && V.has('吐向它')) {
     nb[di] = bugs[di];
     if (eq(bugs[di], lz.pos) && lz.mode !== '吃') {
       nb[di] = null;
-      return { pl, ate, bugs: nb, lz: { pos: lz.pos, face: lz.face, mode: '吃', tgt: null, mem: null, eat: 2 } };
+      return withPf(V, { pl, ate, bugs: nb, lz: { pos: lz.pos, face: lz.face, mode: '吃', tgt: null, mem: null, eat: 2 } }, pf);
     }
   }
   const sounds = drop.concat(k !== '.' && k !== 'X' ? [['你', pl]] : []);
@@ -294,19 +297,22 @@ function step(m, st, k) {
   bugs = nb;
   const [lz2, dead] = lizardTurn(m, lz, pl, bugs, sounds);
   if (dead || eq(pl, lz2.pos)) return null;
-  return { pl, ate, bugs, lz: lz2 };
+  return withPf(V, { pl, ate, bugs, lz: lz2 }, pf);
 }
+function withPf(V, o, pf) { if (V.has('吐朝')) o.pf = pf; return o; }
 
 // 09:28 给画面用：现在按 x，虫会落在哪一格（跟 step 里吐的那几行同一个算法）
 function dropAt(m, st) {
   if (!m.V.has('吐') || st.ate < 1 || has(st.bugs, st.pl)) return null;
   if (!m.V.has('吐向它')) return st.pl;
-  const [t] = m.stepToward(st.pl, st.lz.pos);
+  let t;
+  if (m.V.has('吐朝')) t = st.pf ? [st.pl[0] + DIRS[st.pf][0], st.pl[1] + DIRS[st.pf][1]] : st.pl;
+  else [t] = m.stepToward(st.pl, st.lz.pos);
   return (!eq(t, st.pl) && m.free(t) && !has(st.bugs, t)) ? t : st.pl;
 }
 
 function init(m) {
-  return { pl: m.start, ate: m.carry, bugs: m.bugs.slice(), lz: { pos: m.post, face: m.face, mode: '岗', tgt: null, mem: null, eat: 0 } };
+  return withPf(m.V, { pl: m.start, ate: m.carry, bugs: m.bugs.slice(), lz: { pos: m.post, face: m.face, mode: '岗', tgt: null, mem: null, eat: 0 } }, null);
 }
 
 api = { Map: Map_, step, init, dropAt, DIRS, ORDER, eq, heard: false };

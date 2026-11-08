@@ -56,7 +56,15 @@ function drawBug(g, X, Y, a) {
   g.globalAlpha = 1;
 }
 
-function drawMe(g, X, Y, belly) {
+function drawMe(g, X, Y, belly, pf) {
+  if (pf) {   // 10:28 你的朝向（第一个并的'吐朝'：吐在你脸前一格）：圆边上一个小尖
+    const [dx, dy] = DV[pf];
+    g.fillStyle = COL.me; g.beginPath();
+    g.moveTo(X + dx * C * 0.44, Y + dy * C * 0.44);
+    g.lineTo(X + dx * C * 0.2 - dy * C * 0.16, Y + dy * C * 0.2 + dx * C * 0.16);
+    g.lineTo(X + dx * C * 0.2 + dy * C * 0.16, Y + dy * C * 0.2 - dx * C * 0.16);
+    g.closePath(); g.fill();
+  }
   g.fillStyle = COL.me; g.beginPath(); g.arc(X, Y, C * 0.3, 0, 7); g.fill();
   g.fillStyle = '#0d2236'; g.font = 'bold 16px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('我', X, Y + 1);
   for (let i = 0; i < belly; i++) drawBug(g, X - 14 + i * 14, Y + C * 0.38, 0.9);  // 肚子里有几只，脚下画几只小虫
@@ -208,7 +216,7 @@ function frame(cv, m, info, t) {
   }
   // 我
   const [mx, my] = prev ? at(prev.pl, dead ? dead.at : st.pl, ease(seg(t, 0, 0.35))) : at(st.pl);
-  drawMe(g, mx, my, st.ate);
+  drawMe(g, mx, my, st.ate, st.pf);
   // 蜥蜴
   const lp = dead ? dead.from : lz.pos;
   const [lx, ly] = prev ? at(prev.lz.pos, dead ? dead.at : lp, tMove) : at(lp);
