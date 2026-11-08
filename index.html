@@ -205,7 +205,8 @@ function act(k) {
     prev = st; heardNow = false; draw(true); return;
   }
   heardNow = S.heard;
-  log.unshift(`第 ${n} 步（${KNAME[k]}）：` + events(k, st, r).join(' '));
+  const ev = events(k, st, r);   // 09:55 第三个：空着的步把有事的挤下去了，没动静的那步淡淡写一句
+  log.unshift(ev.length ? `第 ${n} 步（${KNAME[k]}）：` + ev.join(' ') : `<span style="color:#77735f">第 ${n} 步（${KNAME[k]}）：你走了一格，它没动静。</span>`);
   prev = st; st = r;
   if (st.ate < m.need && st.bugs.every(b => !b)) { over = true; msg.textContent = `你肚子里只剩 ${st.ate} 只，地上也没有虫了，凑不够 ${m.need} 只，这一局赢不了了。按 R 从头再来。`; }
   else if (st.ate >= m.need && eq(st.pl, m.nest)) {
